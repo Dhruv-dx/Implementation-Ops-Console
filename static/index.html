@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMAP&reg; Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css?v=5">
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js" defer></script>
+</head>
+<body data-view="home">
+
+<header class="topbar">
+  <a class="brand" href="#/" aria-label="OMAP Admin Dashboard home">
+    <span class="brand-logo" aria-hidden="true">O</span>
+    <span>
+      <span class="brand-name">OMAP&reg; Admin Dashboard</span><br>
+      <span class="brand-sub">by AltaDX</span>
+    </span>
+  </a>
+  <nav class="navbar-center" aria-label="Primary">
+    <a class="home-link" href="#/">Home</a>
+    <span class="current" id="crumb-current"></span>
+  </nav>
+  <div class="topbar-right">
+    <a class="back-btn" href="#/" aria-label="Back to home">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+      Back
+    </a>
+  </div>
+</header>
+
+<main>
+
+<!-- ==================== HOME ==================== -->
+<section id="view-home" class="view active">
+  <div class="page-head page-head-home">
+    <span class="page-head-accent" aria-hidden="true"></span>
+    <div>
+      <h1>Operations Console</h1>
+      <p>Internal tools for the support and implementation workflow. Pick a module to get started.</p>
+    </div>
+  </div>
+  <div class="cards-grid">
+    <a class="feature-card card-chats" href="#/chats">
+      <span class="card-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <h2>Chats Review</h2>
+      <p>Browse agent chat sessions per organization — conversations, sentiment, categories and knowledge-base usage.</p>
+      <span class="card-go">Open module
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
+
+    <a class="feature-card card-tickets" href="#/tickets-automation">
+      <span class="card-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>
+      </span>
+      <h2>Tickets Automation</h2>
+      <p>Pull admin-note tickets from Jira, resolve session-log links, and export the result to Excel or timesheet.</p>
+      <span class="card-go">Open module
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
+
+    <a class="feature-card card-osd" href="#/osd-imap">
+      <span class="card-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+      </span>
+      <h2>OSD &rarr; IMAP</h2>
+      <p>Copy &ldquo;Admin Note Created&rdquo; tickets from the Service Desk into the Implementations project for a given date.</p>
+      <span class="card-go">Open module
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
+
+    <a class="feature-card card-close" href="#/close-tickets">
+      <span class="card-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+      </span>
+      <h2>Close Tickets</h2>
+      <p>Find open Jira tickets by summary pattern, review the matches, and bulk-close the ones you select.</p>
+      <span class="card-go">Open module
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
+  </div>
+</section>
+
+<!-- ==================== CHATS REVIEW ==================== -->
+<section id="view-chats" class="view">
+  <div class="page-head">
+    <h1>Chats Review</h1>
+    <p>Review agent chat sessions stored per organization, including full conversations and per-message metadata.</p>
+  </div>
+
+  <form class="panel" id="chats-form">
+    <div class="form-row">
+      <div class="field">
+        <label for="chats-org">Organization ID <span class="req" aria-hidden="true">*</span></label>
+        <input id="chats-org" type="number" inputmode="numeric" required placeholder="e.g. 1024" autocomplete="off">
+      </div>
+      <div class="field grow-2">
+        <label for="chats-session">Session ID <span style="font-weight:400">(optional)</span></label>
+        <input id="chats-session" type="text" placeholder="Filter by an exact session ID" autocomplete="off">
+        <span class="hint">Leave empty to list every session for the organization.</span>
+      </div>
+      <button class="btn btn-primary" type="submit" id="chats-submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Load sessions
+      </button>
+    </div>
+  </form>
+
+  <div id="chats-stats" class="stats-row" hidden></div>
+  <div id="chats-results"></div>
+</section>
+
+<!-- ==================== TICKETS AUTOMATION ==================== -->
+<section id="view-tickets-automation" class="view">
+  <div class="page-head">
+    <h1>Tickets Automation</h1>
+    <p>Fetches admin-note tickets from Jira for an organization, resolves each conversation to a session-log URL, and exports everything to Excel.</p>
+  </div>
+
+  <form class="panel" id="ta-form">
+    <div class="form-row">
+      <div class="field">
+        <label for="ta-org">Organization ID <span class="req" aria-hidden="true">*</span></label>
+        <input id="ta-org" type="text" required placeholder="e.g. 1024" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="ta-from">From date <span style="font-weight:400">(optional)</span></label>
+        <input id="ta-from" type="date">
+      </div>
+      <div class="field">
+        <label for="ta-to">To date <span style="font-weight:400">(optional)</span></label>
+        <input id="ta-to" type="date">
+      </div>
+      <button class="btn btn-primary" type="submit" id="ta-submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        Run export
+      </button>
+      <button class="btn btn-secondary" type="button" id="ta-download" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        Download .xlsx
+      </button>
+    </div>
+  </form>
+
+  <div id="ta-stats" class="stats-row" hidden></div>
+  <div class="panel" id="ta-copy-panel" hidden>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <strong>Timesheet copy</strong>
+      <button class="btn btn-secondary" type="button" id="ta-copy-all">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        Copy all rows
+      </button>
+    </div>
+    <p class="hint" style="color:var(--text-faint);font-size:13px;margin-top:6px">Copies every row as <span class="mono">TICKET | note</span> lines for pasting into the timesheet.</p>
+  </div>
+  <div id="ta-results"></div>
+</section>
+
+<!-- ==================== OSD -> IMAP ==================== -->
+<section id="view-osd-imap" class="view">
+  <div class="page-head">
+    <h1>OSD &rarr; IMAP</h1>
+    <p>Copies every &ldquo;Admin Note Created&rdquo; ticket created on the chosen date from the Service Desk (OSD) into the Implementations project (IMAP), skipping duplicates and moving new issues to the target status.</p>
+  </div>
+
+  <form class="panel" id="osd-form">
+    <div class="form-row">
+      <div class="field">
+        <label for="osd-date">Creation date <span class="req" aria-hidden="true">*</span></label>
+        <input id="osd-date" type="date" required>
+      </div>
+      <label class="checkbox-field" for="osd-dry">
+        <input id="osd-dry" type="checkbox" checked>
+        Dry run — preview what would be created, without creating anything
+      </label>
+      <button class="btn btn-primary" type="submit" id="osd-submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+        <span id="osd-submit-label">Preview copy</span>
+      </button>
+    </div>
+  </form>
+
+  <div id="osd-stats" class="stats-row" hidden></div>
+  <div id="osd-results"></div>
+</section>
+
+<!-- ==================== CLOSE TICKETS ==================== -->
+<section id="view-close-tickets" class="view">
+  <div class="page-head">
+    <h1>Close Tickets</h1>
+    <p>Search open tickets by an exact summary substring (dry run), untick anything you want to keep, then bulk-close the rest.</p>
+  </div>
+
+  <form class="panel" id="ct-form">
+    <div class="form-row">
+      <div class="field grow-2">
+        <label for="ct-pattern">Summary pattern <span class="req" aria-hidden="true">*</span></label>
+        <input id="ct-pattern" type="text" required placeholder='e.g. "Auto refresh failed"' autocomplete="off">
+        <span class="hint">Case-insensitive substring match against open ticket summaries.</span>
+      </div>
+      <div class="field" style="max-width:140px">
+        <label for="ct-workers">Workers</label>
+        <input id="ct-workers" type="number" min="1" max="100" value="50">
+      </div>
+      <button class="btn btn-primary" type="submit" id="ct-submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        Find tickets
+      </button>
+    </div>
+  </form>
+
+  <div id="ct-toolbar" class="panel" hidden>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <span id="ct-selection-count" style="font-weight:600"></span>
+      <button class="btn btn-secondary" type="button" id="ct-select-all">Select all</button>
+      <button class="btn btn-secondary" type="button" id="ct-select-none">Select none</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-danger" type="button" id="ct-close-btn" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+        Close selected
+      </button>
+    </div>
+  </div>
+  <div id="ct-results"></div>
+</section>
+
+</main>
+
+<footer>The AltaDX OMAP&reg; Team &middot; internal operations console</footer>
+
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal">
+    <h3 id="confirm-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      Confirm bulk close
+    </h3>
+    <p id="confirm-msg"></p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" type="button" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" type="button" id="confirm-ok">Close tickets</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
