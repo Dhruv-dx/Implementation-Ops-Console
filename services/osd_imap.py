@@ -44,21 +44,32 @@ def _transition_to(cfg, issue_key, status_name):
         raise jira_common.JiraError(f"Transition failed ({resp.status_code}): {resp.text[:300]}")
 
 
-def copy_admin_notes_for_date(date_str: str, dry_run: bool = False) -> dict:
+def copy_admin_notes_for_date(date_str: str, dry_run: bool = False, ticket_keys: list[str] = None) -> dict:
     cfg = jira_common.get_config()
     source_project = cfg["project"]
     target_project = cfg["target_project"]
 
-    source_jql = (
-        f'project = {source_project} AND summary ~ "{SUMMARY_FILTER}" '
-        f'AND created >= "{date_str} 00:00" AND created <= "{date_str} 23:59"'
-    )
+    wanted = {k.strip().upper() for k in ticket_keys if k.strip()} if ticket_keys else set()
+    if wanted:
+        source_jql = f'project = {source_project} AND issuekey in ({",".join(sorted(wanted))})'
+    else:
+        source_jql = (
+            f'project = {source_project} AND summary ~ "{SUMMARY_FILTER}" '
+            f'AND created >= "{date_str} 00:00" AND created <= "{date_str} 23:59"'
+        )
     source_issues = jira_common.search_jql(cfg, source_jql, ["summary", "description"])
+
+    not_found = []
+    if wanted:
+        fetched_keys = {issue["key"].upper() for issue in source_issues}
+        not_found = sorted(wanted - fetched_keys)
 
     target_jql = f'project = {target_project} AND summary ~ "{SUMMARY_FILTER}"'
     existing_summaries = {
         issue["fields"]["summary"] for issue in jira_common.search_jql(cfg, target_jql, ["summary"])
     }
+
+    assignee_account_id = None if dry_run else jira_common.get_current_account_id(cfg)
 
     created, skipped, errors, would_create = [], [], [], []
 
@@ -80,6 +91,7 @@ def copy_admin_notes_for_date(date_str: str, dry_run: bool = False) -> dict:
                 "issuetype": {"name": cfg["target_issue_type"]},
                 "summary": summary,
                 "description": _adf_from_text(_description_text(issue["fields"])),
+                "assignee": {"id": assignee_account_id},
             }
         }
         resp = jira_common.request(cfg, "POST", "/rest/api/3/issue", json=payload)
@@ -109,4 +121,5 @@ def copy_admin_notes_for_date(date_str: str, dry_run: bool = False) -> dict:
         "would_create": would_create,
         "skipped": skipped,
         "errors": errors,
+        "not_found": not_found,
     }

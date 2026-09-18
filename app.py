@@ -4,6 +4,7 @@ Chats Review, Tickets Automation, OSD -> IMAP, Close Tickets.
 Run:  python app.py   (serves http://127.0.0.1:8100)
 """
 import os
+import re
 from datetime import date as date_type
 from typing import Optional
 
@@ -17,9 +18,10 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from services import chats, close_tickets, osd_imap, ticket_automation
+from services import chats, close_tickets, osd_imap, sharepoint, ticket_automation
 from services.jira_common import JiraError
 from services.mongo_common import MongoConfigError
+from services.sharepoint import SharePointError
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -36,7 +38,7 @@ async def index():
 def _guard(fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
-    except (JiraError, MongoConfigError) as e:
+    except (JiraError, MongoConfigError, SharePointError) as e:
         raise HTTPException(502, str(e))
     except HTTPException:
         raise
@@ -57,33 +59,61 @@ async def chats_sessions(
 # ---------------------------------------------------------- Tickets Automation
 
 class ProcessRequest(BaseModel):
-    org_id: str
+    org_id: Optional[str] = ""
+    org_name: Optional[str] = ""
+    agent_name: Optional[str] = ""
     date_from: Optional[date_type] = None
     date_to: Optional[date_type] = None
 
 
+def _ta_filters(req: ProcessRequest) -> tuple[str, str, str]:
+    org_id = (req.org_id or "").strip()
+    org_name = (req.org_name or "").strip()
+    agent_name = (req.agent_name or "").strip()
+    if not org_id and not org_name and not agent_name:
+        raise HTTPException(400, "Provide an Organization ID, Organization name, or an Agent name")
+    return org_id, org_name, agent_name
+
+
 @app.post("/api/ticket-automation/process")
 async def ta_process(req: ProcessRequest):
-    org_id = req.org_id.strip()
-    if not org_id:
-        raise HTTPException(400, "Organization ID is required")
-    return _guard(ticket_automation.process, org_id, req.date_from, req.date_to)
+    org_id, org_name, agent_name = _ta_filters(req)
+    return _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to)
 
 
 @app.post("/api/ticket-automation/download")
 async def ta_download(req: ProcessRequest):
-    org_id = req.org_id.strip()
-    if not org_id:
-        raise HTTPException(400, "Organization ID is required")
-    result = _guard(ticket_automation.process, org_id, req.date_from, req.date_to)
+    org_id, org_name, agent_name = _ta_filters(req)
+    result = _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to)
     if not result["rows"]:
-        raise HTTPException(404, f"No tickets found for Organization ID {org_id}")
-    xlsx = ticket_automation.generate_excel(org_id, result["rows"])
+        raise HTTPException(404, "No tickets found for the given filters")
+    label = org_id or org_name or agent_name
+    xlsx = ticket_automation.generate_excel(label, result["rows"], org_name)
     return Response(
         content=xlsx,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="org_{org_id}_sessions.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="{label}_sessions.xlsx"'},
     )
+
+
+@app.get("/api/ticket-automation/sharepoint/debug")
+async def ta_sharepoint_debug():
+    return {
+        "cwd": os.getcwd(),
+        "AZURE_TENANT_ID_set": bool(os.getenv("AZURE_TENANT_ID")),
+        "AZURE_CLIENT_ID_set": bool(os.getenv("AZURE_CLIENT_ID")),
+        "AZURE_CLIENT_SECRET_set": bool(os.getenv("AZURE_CLIENT_SECRET")),
+        "SHAREPOINT_EXCEL_URL_set": bool(os.getenv("SHAREPOINT_EXCEL_URL")),
+    }
+
+
+@app.post("/api/ticket-automation/sharepoint")
+async def ta_sharepoint(req: ProcessRequest):
+    org_id, org_name, agent_name = _ta_filters(req)
+    result = _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to)
+    if not result["rows"]:
+        raise HTTPException(404, "No tickets found for the given filters")
+    return _guard(sharepoint.append_new_tickets, result["rows"], org_name)
 
 
 # ------------------------------------------------------------------ OSD -> IMAP
@@ -91,11 +121,13 @@ async def ta_download(req: ProcessRequest):
 class CopyRequest(BaseModel):
     date: date_type
     dry_run: bool = False
+    ticket_numbers: Optional[str] = ""
 
 
 @app.post("/api/osd-imap/copy")
 async def osd_imap_copy(req: CopyRequest):
-    return _guard(osd_imap.copy_admin_notes_for_date, req.date.isoformat(), req.dry_run)
+    ticket_keys = [k.strip() for k in re.split(r"[,\s]+", req.ticket_numbers or "") if k.strip()]
+    return _guard(osd_imap.copy_admin_notes_for_date, req.date.isoformat(), req.dry_run, ticket_keys or None)
 
 
 # ---------------------------------------------------------------- Close Tickets

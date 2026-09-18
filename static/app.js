@@ -222,6 +222,8 @@ let taRows = [];
 function taPayload() {
   return JSON.stringify({
     org_id: $("ta-org").value.trim(),
+    org_name: $("ta-org-name").value.trim(),
+    agent_name: $("ta-agent").value.trim(),
     date_from: $("ta-from").value || null,
     date_to: $("ta-to").value || null,
   });
@@ -231,8 +233,13 @@ $("ta-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const results = $("ta-results");
   const stats = $("ta-stats");
+  if (!$("ta-org").value.trim() && !$("ta-org-name").value.trim() && !$("ta-agent").value.trim()) {
+    toast("Provide an Organization ID, Organization name, or an Agent name", "error");
+    return;
+  }
   setLoading($("ta-submit"), true);
   $("ta-download").disabled = true;
+  $("ta-sharepoint").disabled = true;
   $("ta-copy-panel").hidden = true;
   stats.hidden = true;
   results.innerHTML = skeleton(6);
@@ -247,13 +254,19 @@ $("ta-form").addEventListener("submit", async (e) => {
     stats.hidden = false;
 
     if (!data.rows.length) {
+      let filterDesc = `Agent ${esc(data.agent_name)}`;
+      if (data.org_id) filterDesc = `Organization ID ${esc(data.org_id)}`;
+      else if (data.org_name) filterDesc = `Organization ${esc(data.org_name)}`;
       results.innerHTML = stateBox("No tickets matched",
-        `No admin-note tickets found for Organization ID ${esc(data.org_id)} in the selected range.`);
+        `No admin-note tickets found for ${filterDesc} in the selected range.`);
       return;
     }
     $("ta-download").disabled = false;
+    $("ta-sharepoint").disabled = false;
     $("ta-copy-panel").hidden = false;
-    results.innerHTML = `<div class="table-wrap"><table>
+    const orgHeader = data.org_name || data.org_id;
+    results.innerHTML = `${orgHeader ? `<h3 class="table-org-header">Organization: ${esc(orgHeader)}</h3>` : ""}
+      <div class="table-wrap"><table>
       <thead><tr><th>Ticket</th><th>Status</th><th>Created</th><th>Session URL</th><th>Note</th><th></th></tr></thead>
       <tbody>${data.rows.map((r, i) => `<tr>
         <td class="mono">${esc(r.ticket_id)}</td>
@@ -303,7 +316,8 @@ $("ta-download").addEventListener("click", async () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `org_${$("ta-org").value.trim()}_sessions.xlsx`;
+    const label = $("ta-org").value.trim() || $("ta-org-name").value.trim() || $("ta-agent").value.trim() || "export";
+    a.download = `${label}_sessions.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
     toast("Excel downloaded", "success");
@@ -314,7 +328,28 @@ $("ta-download").addEventListener("click", async () => {
   }
 });
 
+$("ta-sharepoint").addEventListener("click", async () => {
+  const btn = $("ta-sharepoint");
+  setLoading(btn, true);
+  try {
+    const data = await api("/api/ticket-automation/sharepoint", { method: "POST", body: taPayload() });
+    toast(`Added ${data.added} new ticket${data.added === 1 ? "" : "s"} to SharePoint (${data.skipped_duplicates} already present)`, "success");
+  } catch (err) {
+    toast(`SharePoint update failed: ${err.message}`, "error");
+  } finally {
+    setLoading(btn, false);
+  }
+});
+
 /* ============================================================= OSD -> IMAP */
+(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  const dateInput = $("osd-date");
+  dateInput.max = today;
+  if (!dateInput.value) dateInput.value = today;
+  dateInput.addEventListener("wheel", (ev) => ev.preventDefault(), { passive: false });
+})();
+
 $("osd-dry").addEventListener("change", () => {
   $("osd-submit-label").textContent = $("osd-dry").checked ? "Preview copy" : "Copy tickets";
 });
@@ -339,7 +374,11 @@ $("osd-form").addEventListener("submit", async (e) => {
   try {
     const data = await api("/api/osd-imap/copy", {
       method: "POST",
-      body: JSON.stringify({ date: $("osd-date").value, dry_run: dry }),
+      body: JSON.stringify({
+        date: $("osd-date").value,
+        dry_run: dry,
+        ticket_numbers: $("osd-tickets").value.trim(),
+      }),
     });
     const createdCount = dry ? data.would_create.length : data.created.length;
     stats.innerHTML =
@@ -350,6 +389,12 @@ $("osd-form").addEventListener("submit", async (e) => {
     stats.hidden = false;
 
     let html = "";
+    if (data.not_found && data.not_found.length) {
+      html += `<div class="result-section"><h3><span class="badge badge-warning">Not found</span> Not in ${esc(data.source_project)} on ${esc(data.date)}</h3>` +
+        osdList(data.not_found.map(key => ({ key })), [
+          { key: "key", label: "Ticket", mono: true },
+        ]) + `</div>`;
+    }
     if (dry && data.would_create.length) {
       html += `<div class="result-section"><h3><span class="badge badge-info">Dry run</span> Would be copied to ${esc(data.target_project)} (status: ${esc(data.target_status)})</h3>` +
         osdList(data.would_create, [

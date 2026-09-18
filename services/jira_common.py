@@ -75,6 +75,13 @@ def search_jql(cfg: dict, jql: str, fields: list[str], on_issue=None) -> list[di
     return issues
 
 
+def get_current_account_id(cfg: dict) -> str:
+    resp = request(cfg, "GET", "/rest/api/3/myself")
+    if not resp.ok:
+        raise JiraError(f"Failed to resolve current Jira user ({resp.status_code}): {resp.text[:300]}")
+    return resp.json()["accountId"]
+
+
 def get_transitions(cfg: dict, issue_key: str) -> list[dict]:
     resp = request(cfg, "GET", f"/rest/api/3/issue/{issue_key}/transitions")
     if resp.status_code == 404:

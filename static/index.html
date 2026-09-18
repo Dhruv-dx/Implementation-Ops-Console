@@ -129,8 +129,16 @@
   <form class="panel" id="ta-form">
     <div class="form-row">
       <div class="field">
-        <label for="ta-org">Organization ID <span class="req" aria-hidden="true">*</span></label>
-        <input id="ta-org" type="text" required placeholder="e.g. 1024" autocomplete="off">
+        <label for="ta-org">Organization ID <span style="font-weight:400">(optional)</span></label>
+        <input id="ta-org" type="text" placeholder="e.g. 1024" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="ta-org-name">Organization name <span style="font-weight:400">(optional)</span></label>
+        <input id="ta-org-name" type="text" placeholder="e.g. National Fitness" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="ta-agent">Agent name <span style="font-weight:400">(optional)</span></label>
+        <input id="ta-agent" type="text" placeholder="e.g. HARPER" autocomplete="off">
       </div>
       <div class="field">
         <label for="ta-from">From date <span style="font-weight:400">(optional)</span></label>
@@ -147,6 +155,10 @@
       <button class="btn btn-secondary" type="button" id="ta-download" disabled>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
         Download .xlsx
+      </button>
+      <button class="btn btn-secondary" type="button" id="ta-sharepoint" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 12.5a5.5 5.5 0 0 0-5.44-5.5A6.5 6.5 0 0 0 3.63 8.83 4.5 4.5 0 0 0 5 17.5h15a4 4 0 0 0 1.5-7"/></svg>
+        Add to SharePoint
       </button>
     </div>
   </form>
@@ -169,14 +181,18 @@
 <section id="view-osd-imap" class="view">
   <div class="page-head">
     <h1>OSD &rarr; IMAP</h1>
-    <p>Copies every &ldquo;Admin Note Created&rdquo; ticket created on the chosen date from the Service Desk (OSD) into the Implementations project (IMAP), skipping duplicates and moving new issues to the target status.</p>
+    <p>Copies every &ldquo;Admin Note Created&rdquo; ticket created on the chosen date from the Service Desk (OSD) into the Implementations project (IMAP), skipping duplicates and moving new issues to the target status. Optionally list specific ticket numbers to move only those instead of every ticket from that date.</p>
   </div>
 
   <form class="panel" id="osd-form">
     <div class="form-row">
       <div class="field">
         <label for="osd-date">Creation date <span class="req" aria-hidden="true">*</span></label>
-        <input id="osd-date" type="date" required>
+        <input id="osd-date" type="date" required min="2000-01-01">
+      </div>
+      <div class="field">
+        <label for="osd-tickets">Ticket number(s) <span style="font-weight:400">(optional)</span></label>
+        <input id="osd-tickets" type="text" placeholder="e.g. OSD-6873, OSD-6890" autocomplete="off">
       </div>
       <label class="checkbox-field" for="osd-dry">
         <input id="osd-dry" type="checkbox" checked>
