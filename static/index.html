@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=5">
+<link rel="stylesheet" href="/static/style.css?v=11">
 <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js" defer></script>
 </head>
 <body data-view="home">
@@ -94,39 +94,75 @@
 <section id="view-chats" class="view">
   <div class="page-head">
     <h1>Chats Review</h1>
-    <p>Review agent chat sessions stored per organization, including full conversations and per-message metadata.</p>
+    <p>Review agent chat sessions and their router traces (turns, tool calls, tokens, latency) per organization, in any environment.</p>
   </div>
 
-  <form class="panel" id="chats-form">
-    <div class="form-row">
-      <div class="field">
-        <label for="chats-org">Organization ID <span class="req" aria-hidden="true">*</span></label>
-        <input id="chats-org" type="number" inputmode="numeric" required placeholder="e.g. 1024" autocomplete="off">
-      </div>
-      <div class="field grow-2">
-        <label for="chats-session">Session ID <span style="font-weight:400">(optional)</span></label>
-        <input id="chats-session" type="text" placeholder="Filter by an exact session ID" autocomplete="off">
-        <span class="hint">Leave empty to list every session for the organization.</span>
-      </div>
-      <button class="btn btn-primary" type="submit" id="chats-submit">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        Load sessions
+  <div class="chats-layout">
+    <nav class="side-nav" id="chats-tabs" role="tablist" aria-orientation="vertical" aria-label="Chats views">
+      <button type="button" role="tab" class="active" aria-selected="true" data-tab="chats">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chats
       </button>
-    </div>
-  </form>
+      <button type="button" role="tab" aria-selected="false" data-tab="traces">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Traces
+      </button>
+    </nav>
 
-  <div id="chats-stats" class="stats-row" hidden></div>
-  <div id="chats-results"></div>
+    <div class="chats-main">
+      <form class="panel" id="chats-form">
+        <div class="field env-field">
+          <label id="chats-env-label">Environment</label>
+          <div class="env-toggle" id="chats-env" role="radiogroup" aria-labelledby="chats-env-label">
+            <button type="button" role="radio" aria-checked="false" data-env="dev">Dev</button>
+            <button type="button" role="radio" aria-checked="false" data-env="qa">QA</button>
+            <button type="button" role="radio" aria-checked="false" data-env="uat">UAT</button>
+            <button type="button" role="radio" aria-checked="true" data-env="prod" class="active">Prod</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="chats-org">Organization ID <span class="req" aria-hidden="true">*</span></label>
+            <input id="chats-org" type="number" inputmode="numeric" required placeholder="e.g. 1024" autocomplete="off">
+          </div>
+          <div class="field grow-2">
+            <label for="chats-session">Session ID <span style="font-weight:400">(optional)</span></label>
+            <input id="chats-session" type="text" placeholder="Filter by an exact session ID" autocomplete="off">
+            <span class="hint" id="chats-hint">Leave empty to list every session for the organization.</span>
+          </div>
+          <button class="btn btn-primary" type="submit" id="chats-submit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span id="chats-submit-label">Load sessions</span>
+          </button>
+        </div>
+      </form>
+
+      <div id="chats-stats" class="stats-row" hidden></div>
+      <div id="chats-results"></div>
+      <div id="traces-stats" class="stats-row" hidden></div>
+      <div id="traces-results" hidden></div>
+    </div>
+  </div>
 </section>
 
 <!-- ==================== TICKETS AUTOMATION ==================== -->
 <section id="view-tickets-automation" class="view">
   <div class="page-head">
     <h1>Tickets Automation</h1>
-    <p>Fetches admin-note tickets from Jira for an organization, resolves each conversation to a session-log URL, and exports everything to Excel.</p>
+    <p>Fetches admin notes &mdash; from Jira for Prod, or from the environment&rsquo;s MongoDB for Dev / QA / UAT &mdash; resolves each conversation to a session-log URL, and exports everything to Excel.</p>
   </div>
 
   <form class="panel" id="ta-form">
+    <div class="field env-field">
+      <label id="ta-env-label">Environment</label>
+      <div class="env-toggle" id="ta-env" role="radiogroup" aria-labelledby="ta-env-label">
+        <button type="button" role="radio" aria-checked="false" data-env="dev">Dev</button>
+        <button type="button" role="radio" aria-checked="false" data-env="qa">QA</button>
+        <button type="button" role="radio" aria-checked="false" data-env="uat">UAT</button>
+        <button type="button" role="radio" aria-checked="true" data-env="prod" class="active">Prod</button>
+      </div>
+      <span class="hint" id="ta-env-hint">Prod reads admin-note tickets from Jira. Dev / QA / UAT read notes from that environment's MongoDB by date.</span>
+    </div>
     <div class="form-row">
       <div class="field">
         <label for="ta-org">Organization ID <span style="font-weight:400">(optional)</span></label>
@@ -137,7 +173,7 @@
         <input id="ta-org-name" type="text" placeholder="e.g. National Fitness" autocomplete="off">
       </div>
       <div class="field">
-        <label for="ta-agent">Agent name <span style="font-weight:400">(optional)</span></label>
+        <label for="ta-agent" id="ta-agent-label">Agent name <span style="font-weight:400">(optional)</span></label>
         <input id="ta-agent" type="text" placeholder="e.g. HARPER" autocomplete="off">
       </div>
       <div class="field">
@@ -270,6 +306,6 @@
 
 <div id="toasts" aria-live="polite"></div>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=10"></script>
 </body>
 </html>

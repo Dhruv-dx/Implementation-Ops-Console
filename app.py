@@ -52,8 +52,18 @@ def _guard(fn, *args, **kwargs):
 async def chats_sessions(
     organization_id: int = Query(..., description="Organization ID"),
     session_id: str = Query("", description="Optional session ID filter"),
+    env: str = Query("prod", description="dev / qa / uat / prod"),
 ):
-    return _guard(chats.get_sessions, organization_id, session_id.strip())
+    return _guard(chats.get_sessions, organization_id, session_id.strip(), env)
+
+
+@app.get("/api/chats/traces")
+async def chats_traces(
+    organization_id: int = Query(..., description="Organization ID"),
+    session_id: str = Query("", description="Optional session ID filter"),
+    env: str = Query("prod", description="dev / qa / uat / prod"),
+):
+    return _guard(chats.get_traces, organization_id, session_id.strip(), env)
 
 
 # ---------------------------------------------------------- Tickets Automation
@@ -64,30 +74,39 @@ class ProcessRequest(BaseModel):
     agent_name: Optional[str] = ""
     date_from: Optional[date_type] = None
     date_to: Optional[date_type] = None
+    env: Optional[str] = "prod"
 
 
 def _ta_filters(req: ProcessRequest) -> tuple[str, str, str]:
     org_id = (req.org_id or "").strip()
     org_name = (req.org_name or "").strip()
     agent_name = (req.agent_name or "").strip()
-    if not org_id and not org_name and not agent_name:
-        raise HTTPException(400, "Provide an Organization ID, Organization name, or an Agent name")
+    if not org_id and not org_name and not agent_name and not req.date_from and not req.date_to:
+        raise HTTPException(400, "Provide an Organization ID, Organization name, Agent name, or a date range")
     return org_id, org_name, agent_name
+
+
+def _ta_label(org_id: str, org_name: str, agent_name: str, req: ProcessRequest) -> str:
+    if org_id or org_name or agent_name:
+        return org_id or org_name or agent_name
+    return f"{req.date_from or 'start'}_to_{req.date_to or 'today'}"
 
 
 @app.post("/api/ticket-automation/process")
 async def ta_process(req: ProcessRequest):
     org_id, org_name, agent_name = _ta_filters(req)
-    return _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to)
+    return _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to, req.env or "prod")
 
 
 @app.post("/api/ticket-automation/download")
 async def ta_download(req: ProcessRequest):
     org_id, org_name, agent_name = _ta_filters(req)
-    result = _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to)
+    result = _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to, req.env or "prod")
     if not result["rows"]:
         raise HTTPException(404, "No tickets found for the given filters")
-    label = org_id or org_name or agent_name
+    label = _ta_label(org_id, org_name, agent_name, req)
+    if result.get("env", "prod") != "prod":
+        label = f"{result['env']}_{label}"
     xlsx = ticket_automation.generate_excel(label, result["rows"], org_name)
     return Response(
         content=xlsx,
@@ -110,7 +129,7 @@ async def ta_sharepoint_debug():
 @app.post("/api/ticket-automation/sharepoint")
 async def ta_sharepoint(req: ProcessRequest):
     org_id, org_name, agent_name = _ta_filters(req)
-    result = _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to)
+    result = _guard(ticket_automation.process, org_id, agent_name, org_name, req.date_from, req.date_to, req.env or "prod")
     if not result["rows"]:
         raise HTTPException(404, "No tickets found for the given filters")
     return _guard(sharepoint.append_new_tickets, result["rows"], org_name)

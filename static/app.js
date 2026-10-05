@@ -122,17 +122,198 @@ function renderMarkdown(text) {
   return md ? md.render(String(text ?? "")) : `<p>${esc(text)}</p>`;
 }
 
+let chatsEnv = "prod";
+let chatsTab = "chats";
+
+const CHATS_TAB_META = {
+  chats: { label: "Load sessions", hint: "Leave empty to list every session for the organization." },
+  traces: { label: "Load traces", hint: "Leave empty to list the latest traces for the organization (up to 100)." },
+};
+
+function showChatsTab(tab) {
+  chatsTab = tab;
+  document.querySelectorAll("#chats-tabs button").forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on);
+  });
+  $("chats-results").hidden = tab !== "chats";
+  $("chats-stats").hidden = tab !== "chats" || !$("chats-stats").innerHTML;
+  $("traces-results").hidden = tab !== "traces";
+  $("traces-stats").hidden = tab !== "traces" || !$("traces-stats").innerHTML;
+  $("chats-submit-label").textContent = CHATS_TAB_META[tab].label;
+  $("chats-hint").textContent = CHATS_TAB_META[tab].hint;
+}
+document.querySelectorAll("#chats-tabs button").forEach(b => b.addEventListener("click", () => showChatsTab(b.dataset.tab)));
+
+document.querySelectorAll("#chats-env button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    chatsEnv = btn.dataset.env;
+    document.querySelectorAll("#chats-env button").forEach(b => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", on);
+    });
+    // results belong to the previous environment, so clear them
+    for (const id of ["chats-results", "traces-results", "chats-stats", "traces-stats"]) $(id).innerHTML = "";
+    $("chats-stats").hidden = true;
+    $("traces-stats").hidden = true;
+  });
+});
+
+const fmtMs = (ms) => ms == null ? "—" : ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${Math.round(ms)} ms`;
+const fmtNum = (n) => n == null ? "—" : Number(n).toLocaleString();
+const jsonBlock = (label, value) => {
+  const empty = value == null || (typeof value === "object" && !Object.keys(value).length);
+  if (empty) return "";
+  return `<details class="trace-details"><summary>${esc(label)}</summary><pre class="json">${esc(JSON.stringify(value, null, 2))}</pre></details>`;
+};
+const errText = (e) => esc(typeof e === "string" ? e : JSON.stringify(e));
+
+function renderTurn(t) {
+  const u = t.usage || {};
+  const loop = t.tool_loop || {};
+  const calls = t.tool_calls || [];
+  const hasErr = !!t.error;
+  return `
+    <div class="trace-turn${hasErr ? " has-error" : ""}">
+      <div class="trace-turn-head">
+        <span class="trace-turn-title">Turn ${esc(t.turn_number)}</span>
+        <span class="chat-pill version">${esc(t.model || "—")}</span>
+        <span class="chat-meta-item">${esc(t.provider || "")}</span>
+        <span class="chat-meta-item">${ICON.calendar}${esc(t.timestamp)}</span>
+        ${t.stop_reason ? `<span class="chat-pill category">${esc(t.stop_reason)}</span>` : ""}
+      </div>
+      <div class="trace-kv">
+        <span>Latency <b>${fmtMs(t.latency_ms)}</b></span>
+        <span>Input tokens <b>${fmtNum(u.input_tokens)}</b></span>
+        <span>Output tokens <b>${fmtNum(u.output_tokens)}</b></span>
+        <span>Cached <b>${fmtNum(u.cached_tokens)}</b></span>
+        <span>Reasoning <b>${fmtNum(u.reasoning_tokens)}</b></span>
+        <span>Total <b>${fmtNum(u.total_tokens)}</b></span>
+        <span>Tool loop <b>${esc(loop.iterations ?? 0)}/${esc(loop.max ?? "—")}</b></span>
+        <span>Steps <b>${(t.steps || []).length}</b></span>
+      </div>
+      ${hasErr ? `<div class="trace-error"><strong>Error:</strong> ${errText(t.error)}</div>` : ""}
+      ${(t.queries || []).length ? `
+        <div class="trace-section"><div class="chat-tags-label">${ICON.search} Queries:</div>
+          <div class="chat-tags-grid">${t.queries.map(q => `<span class="chat-tag query">${esc(typeof q === "string" ? q : JSON.stringify(q))}</span>`).join("")}</div></div>` : ""}
+      ${calls.length ? `
+        <div class="trace-section"><div class="chat-tags-label">Tool calls (${calls.length}):</div>
+          ${calls.map(c => {
+            const failed = c.success === false || !!c.error;
+            return `<div class="tool-call${failed ? " fail" : ""}">
+              <div class="tool-call-head">
+                <span class="tool-name">${esc(c.tool_name || "tool")}</span>
+                <span class="chat-pill ${failed ? "bad" : "ok"}">${failed ? "failed" : "success"}</span>
+                <span class="chat-meta-item">step ${esc(c.step_index ?? "—")}</span>
+                <span class="chat-meta-item">${fmtMs(c.latency_ms)}</span>
+              </div>
+              ${c.error ? `<div class="trace-error">${errText(c.error)}</div>` : ""}
+              ${jsonBlock("Input", c.tool_input)}${jsonBlock("Output", c.tool_output)}
+            </div>`;
+          }).join("")}</div>` : ""}
+      ${jsonBlock("Steps", t.steps && t.steps.length ? t.steps : null)}
+      ${jsonBlock("Reasoning", t.reasoning)}
+      ${jsonBlock("Provider metadata", t.provider_metadata)}
+    </div>`;
+}
+
+function renderTrace(tr, i) {
+  return `
+  <div class="session-card" id="trace-${i}">
+    <div class="session-head" role="button" tabindex="0" aria-expanded="false" aria-controls="trace-body-${i}">
+      <div class="session-head-top">
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        <span class="session-id">${esc(tr.session_id)}</span>
+      </div>
+      <div class="session-meta">
+        <span class="chat-meta-item">${ICON.calendar}${esc(tr.created_at)}</span>
+        <span class="chat-meta-item">${ICON.messages}${tr.turn_count} turns</span>
+        <span class="chat-meta-item">${ICON.tag}<span class="chat-pill version">${esc(tr.model || "—")}</span></span>
+        <span class="chat-meta-item">Agent ${esc(tr.agent_id ?? "—")} · v${esc(tr.agent_version_id ?? "—")}</span>
+        <span class="chat-meta-item">${fmtNum(tr.total_tokens)} tokens</span>
+        <span class="chat-meta-item">${fmtMs(tr.total_latency_ms)}</span>
+        <span class="chat-meta-item">${tr.tool_call_count} tool call${tr.tool_call_count === 1 ? "" : "s"}</span>
+        ${tr.error_count ? `<span class="chat-pill bad">${tr.error_count} error${tr.error_count === 1 ? "" : "s"}</span>` : ""}
+        ${tr.sandbox ? `<span class="chat-pill sandbox">sandbox</span>` : ""}
+      </div>
+    </div>
+    <div class="session-body" id="trace-body-${i}">
+      <div class="session-body-inner">
+        <div class="chat-divider"></div>
+        <div class="trace-kv">
+          <span>Chat ID <b>${esc(tr.chat_id || "—")}</b></span>
+          <span>Router <b>${esc(tr.router_version || "—")}</b></span>
+          <span>Channel <b>${esc(tr.distribution_type || "—")}</b></span>
+          <span>Provider <b>${esc(tr.provider || "—")}</b></span>
+          <span>Updated <b>${esc(tr.updated_at)}</b></span>
+        </div>
+        ${jsonBlock("Channel & device metadata", tr.channel)}
+        ${tr.turns.map(renderTurn).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindSessionToggles(root) {
+  root.querySelectorAll(".session-head").forEach(head => {
+    const toggle = () => {
+      const card = head.closest(".session-card");
+      const open = card.classList.toggle("open");
+      head.setAttribute("aria-expanded", String(open));
+    };
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); }
+    });
+  });
+}
+
+async function loadTraces(org, session) {
+  const results = $("traces-results");
+  const stats = $("traces-stats");
+  setLoading($("chats-submit"), true);
+  stats.hidden = true;
+  results.innerHTML = skeleton(4);
+  try {
+    const data = await api(`/api/chats/traces?organization_id=${encodeURIComponent(org)}&session_id=${encodeURIComponent(session)}&env=${chatsEnv}`);
+    const all = data.traces;
+    stats.innerHTML =
+      statCard("Traces", data.total_traces) +
+      statCard("Tool calls", all.reduce((n, t) => n + t.tool_call_count, 0), "stat-info") +
+      statCard("Total tokens", fmtNum(all.reduce((n, t) => n + t.total_tokens, 0)), "stat-success") +
+      statCard("Traces with errors", all.filter(t => t.error_count).length, all.some(t => t.error_count) ? "stat-danger" : "");
+    stats.hidden = false;
+    if (!all.length) {
+      results.innerHTML = stateBox("No traces found",
+        `Organization ${esc(org)} has no matching traces in ${chatsEnv.toUpperCase()}${session ? " for that session ID" : ""}.`);
+      return;
+    }
+    const note = data.total_traces > data.shown
+      ? `<p class="hint" style="color:var(--text-faint);font-size:13px;margin:0 0 10px">Showing the latest ${data.shown} of ${data.total_traces} traces. Filter by Session ID to narrow down.</p>` : "";
+    results.innerHTML = note + all.map(renderTrace).join("");
+    bindSessionToggles(results);
+  } catch (err) {
+    stats.hidden = true;
+    results.innerHTML = stateBox("Could not load traces", err.message, true);
+  } finally {
+    setLoading($("chats-submit"), false);
+  }
+}
+
 $("chats-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const org = $("chats-org").value.trim();
   const session = $("chats-session").value.trim();
+  if (chatsTab === "traces") return loadTraces(org, session);
   const results = $("chats-results");
   const stats = $("chats-stats");
   setLoading($("chats-submit"), true);
   stats.hidden = true;
   results.innerHTML = skeleton(4);
   try {
-    const data = await api(`/api/chats/sessions?organization_id=${encodeURIComponent(org)}&session_id=${encodeURIComponent(session)}`);
+    const data = await api(`/api/chats/sessions?organization_id=${encodeURIComponent(org)}&session_id=${encodeURIComponent(session)}&env=${chatsEnv}`);
     const sc = data.sentiment_counts || {};
     stats.innerHTML =
       statCard("Sessions", data.total_sessions) +
@@ -143,7 +324,7 @@ $("chats-form").addEventListener("submit", async (e) => {
 
     if (!data.sessions.length) {
       results.innerHTML = stateBox("No sessions found",
-        `Organization ${org} has no matching chat sessions${session ? " for that session ID" : ""}.`);
+        `Organization ${esc(org)} has no matching chat sessions in ${chatsEnv.toUpperCase()}${session ? " for that session ID" : ""}.`);
       return;
     }
     results.innerHTML = data.sessions.map((s, i) => {
@@ -218,9 +399,34 @@ $("chats-form").addEventListener("submit", async (e) => {
 
 /* ====================================================== Tickets Automation */
 let taRows = [];
+let taEnv = "prod";
+
+const TA_ENV_HINTS = {
+  prod: "Prod reads admin-note tickets from Jira. Dev / QA / UAT read notes from that environment's MongoDB by date.",
+  other: "Reads chat notes from the {env} MongoDB. Filter by Organization ID, Agent ID and/or dates (names are stored only in Jira).",
+};
+
+document.querySelectorAll("#ta-env button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    taEnv = btn.dataset.env;
+    document.querySelectorAll("#ta-env button").forEach(b => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", on);
+    });
+    const mongo = taEnv !== "prod";
+    $("ta-org-name").disabled = mongo;
+    if (mongo) $("ta-org-name").value = "";
+    $("ta-org-name").placeholder = mongo ? "Prod only" : "e.g. National Fitness";
+    $("ta-agent-label").firstChild.textContent = mongo ? "Agent ID " : "Agent name ";
+    $("ta-agent").placeholder = mongo ? "e.g. 60" : "e.g. HARPER";
+    $("ta-env-hint").textContent = taEnv === "prod" ? TA_ENV_HINTS.prod : TA_ENV_HINTS.other.replace("{env}", taEnv.toUpperCase());
+  });
+});
 
 function taPayload() {
   return JSON.stringify({
+    env: taEnv,
     org_id: $("ta-org").value.trim(),
     org_name: $("ta-org-name").value.trim(),
     agent_name: $("ta-agent").value.trim(),
@@ -233,8 +439,9 @@ $("ta-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const results = $("ta-results");
   const stats = $("ta-stats");
-  if (!$("ta-org").value.trim() && !$("ta-org-name").value.trim() && !$("ta-agent").value.trim()) {
-    toast("Provide an Organization ID, Organization name, or an Agent name", "error");
+  if (!$("ta-org").value.trim() && !$("ta-org-name").value.trim() && !$("ta-agent").value.trim()
+      && !$("ta-from").value && !$("ta-to").value) {
+    toast("Provide an Organization ID, Organization name, Agent name, or a date range", "error");
     return;
   }
   setLoading($("ta-submit"), true);
@@ -247,16 +454,18 @@ $("ta-form").addEventListener("submit", async (e) => {
     const data = await api("/api/ticket-automation/process", { method: "POST", body: taPayload() });
     taRows = data.rows;
     stats.innerHTML =
-      statCard("Fetched from Jira", data.fetched) +
-      statCard("Matched org", data.matched, "stat-info") +
+      statCard(data.source === "mongodb" ? "Sessions with notes" : "Fetched from Jira", data.fetched) +
+      statCard("Matched", data.matched, "stat-info") +
       statCard("Sessions resolved", data.resolved, "stat-success") +
       statCard("Unresolved", data.unresolved, data.unresolved ? "stat-warning" : "");
     stats.hidden = false;
 
     if (!data.rows.length) {
-      let filterDesc = `Agent ${esc(data.agent_name)}`;
+      let filterDesc = "the selected dates";
       if (data.org_id) filterDesc = `Organization ID ${esc(data.org_id)}`;
       else if (data.org_name) filterDesc = `Organization ${esc(data.org_name)}`;
+      else if (data.agent_name) filterDesc = `Agent ${esc(data.agent_name)}`;
+      if (taEnv !== "prod") filterDesc = `${taEnv.toUpperCase()}: ${filterDesc}`;
       results.innerHTML = stateBox("No tickets matched",
         `No admin-note tickets found for ${filterDesc} in the selected range.`);
       return;
@@ -316,7 +525,9 @@ $("ta-download").addEventListener("click", async () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const label = $("ta-org").value.trim() || $("ta-org-name").value.trim() || $("ta-agent").value.trim() || "export";
+    let label = $("ta-org").value.trim() || $("ta-org-name").value.trim() || $("ta-agent").value.trim()
+      || `${$("ta-from").value || "start"}_to_${$("ta-to").value || "today"}`;
+    if (taEnv !== "prod") label = `${taEnv}_${label}`;
     a.download = `${label}_sessions.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
