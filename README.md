@@ -145,7 +145,7 @@ mongo_connection_string_<env>     # required for every env
 mongo_database_<env>              # falls back to mongo_database
 mongo_collection_<env>            # chats collection; falls back to mongo_collection
 mongo_traces_collection_<env>     # optional, defaults to chats_traces (same database)
-SESSION_URL_BASE_<ENV>            # optional chat-log URL base for Tickets Automation links; defaults to the Prod platform URL
+SESSION_URL_BASE_<ENV>            # optional chat-log URL base for Tickets Automation links; defaults to https://platform-<env>.omapagents.ai/... (Prod: https://platform.omapagents.ai/...)
 ```
 
 > Note: do not commit `.env` — the original POC folders contain live tokens in

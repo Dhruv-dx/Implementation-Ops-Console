@@ -287,7 +287,8 @@ async function loadTraces(org, session) {
     stats.hidden = false;
     if (!all.length) {
       results.innerHTML = stateBox("No traces found",
-        `Organization ${esc(org)} has no matching traces in ${chatsEnv.toUpperCase()}${session ? " for that session ID" : ""}.`);
+        `Organization ${esc(org)} has no matching traces in ${chatsEnv.toUpperCase()}${session ? " for that session ID" : ""}.` +
+        (data.source ? ` [queried ${esc(data.source.database)}.${esc(data.source.collection)}: ${data.source.collection_total} docs total, ${data.source.org_total} for this org]` : ""));
       return;
     }
     const note = data.total_traces > data.shown

@@ -11,7 +11,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from . import jira_common
 from .mongo_common import DEFAULT_ENV, MongoConfigError, get_collection, normalize_env
 
-SESSION_URL_BASE = "https://platform.dxfactor.com/member-concierge/chat-log"
+SESSION_URL_TEMPLATE = "https://platform{env_part}.omapagents.ai/member-concierge/chat-log"
 
 COLUMNS = ["Ticket ID", "Session ID", "Session URL", "Note", "Root Cause", "Recommended Fix", "Fixed"]
 COL_WIDTHS = [15, 35, 60, 50, 30, 30, 12]
@@ -97,8 +97,13 @@ def _get_document_ids(session_ids: list[str], env: str = DEFAULT_ENV) -> dict[st
 
 
 def _session_url_base(env: str) -> str:
-    """Per-env override via SESSION_URL_BASE_<ENV>; defaults to the prod platform URL."""
-    return os.getenv(f"SESSION_URL_BASE_{env.upper()}") or SESSION_URL_BASE
+    """platform-<env>.omapagents.ai for dev/qa/uat, platform.omapagents.ai for prod.
+    Per-env override via SESSION_URL_BASE_<ENV> still wins."""
+    override = os.getenv(f"SESSION_URL_BASE_{env.upper()}")
+    if override:
+        return override.rstrip("/")
+    env_part = "" if env == DEFAULT_ENV else f"-{env}"
+    return SESSION_URL_TEMPLATE.format(env_part=env_part)
 
 
 def _note_texts(notes) -> list[str]:
@@ -226,7 +231,7 @@ def process(org_id: str, agent_name: str = "", org_name: str = "", date_from=Non
         rows.append({
             "ticket_id": ticket.get("key", ""),
             "session_id": session_id,
-            "session_url": f"{SESSION_URL_BASE}/{document_id}" if document_id else "",
+            "session_url": f"{_session_url_base(env)}/{document_id}" if document_id else "",
             "agent_name": parsed["agent_name"],
             "organization": parsed["org_name"] or org_name or org_id,
             "note": parsed["note"],

@@ -154,4 +154,10 @@ def get_traces(organization_id: int, session_id: str = "", env: str = DEFAULT_EN
         "total_traces": total,
         "shown": len(traces),
         "traces": traces,
+        "source": {
+            "database": collection.database.name,
+            "collection": collection.name,
+            "collection_total": collection.estimated_document_count(),
+            "org_total": collection.count_documents({"organization_id": organization_id}) if session_id else total,
+        },
     }
