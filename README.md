@@ -39,8 +39,10 @@ services/
   sharepoint.py               # Push Ticket Automation rows into the shared SharePoint Excel
   osd_imap.py                 # OSD -> IMAP copier (with dry-run support)
   close_tickets.py            # Pattern search + concurrent bulk close
+  comment_tickets.py          # Bulk internal note / customer reply on Jira tickets
+  s3_dumps.py                 # List S3 dump files by agent_id + agent_version_id per env; presigned per-file download + zip of all
 static/
-  index.html                  # Single-page shell (hash routing: #/chats, #/tickets-automation, #/osd-imap, #/close-tickets)
+  index.html                  # Single-page shell (hash routing: #/chats, #/tickets-automation, #/osd-imap, #/close-tickets, #/comment-tix, #/s3-dumps)
   app.js                       # All view logic, API calls, rendering
   style.css                    # Dark admin theme + light colorful Chats Review / Traces cards
 ```
@@ -56,7 +58,7 @@ static/
   right-click gives the normal "open in new tab / copy link" browser menu. A
   plain left-click still navigates in the same tab via the app's hash router.
 - Routing is entirely client-side hash routing (`#/chats`, `#/tickets-automation`,
-  `#/osd-imap`, `#/close-tickets`) handled in `app.js`; there's no server-side
+  `#/osd-imap`, `#/close-tickets`, `#/comment-tix`, `#/s3-dumps`) handled in `app.js`; there's no server-side
   page per module.
 
 ## Motion
@@ -130,6 +132,10 @@ either file and don't see the update, bump the `v=` number in
 - `POST /api/osd-imap/copy` - `{date, dry_run, ticket_numbers?}`
 - `POST /api/close-tickets/find` - `{pattern}`
 - `POST /api/close-tickets/close` - `{keys: [...], workers}`
+- `GET /api/s3-dumps/list?env=&agent_id=&agent_version_id=` - both IDs required; files under `<S3_DUMP_PREFIX_ENV>agents/{agent_id}/versions/{agent_version_id}/clean_files/` (newest first; S3 is asked for that exact prefix, no bucket scan). Returns the metadata (key, name, size, last modified) of every file, plus `total` and `total_size`; no file content
+- `GET /api/s3-dumps/zip?env=&agent_id=&agent_version_id=` - all of those files as one zip (refused above 1 GB total; use the per-file links then)
+- `GET /api/s3-dumps/link?env=&key=` - 5-minute presigned download URL for one object (key must be under the configured prefix)
+- `POST /api/comment-tickets/comment` - `{ticket_numbers, comment, mode}`; `mode` is `internal` (internal note) or `reply` (public reply to the customer), via the Jira Service Management request-comment API
 
 ## Environment (`.env`)
 
@@ -145,6 +151,9 @@ mongo_connection_string_<env>     # required for every env
 mongo_database_<env>              # falls back to mongo_database
 mongo_collection_<env>            # chats collection; falls back to mongo_collection
 mongo_traces_collection_<env>     # optional, defaults to chats_traces (same database)
+AWS_ACCESS_KEY_ID_<ENV> / AWS_SECRET_ACCESS_KEY_<ENV> / AWS_REGION_<ENV>   # S3 Dumps credentials per env, e.g. _PROD, _DEV (needs s3:ListBucket + s3:GetObject; unsuffixed AWS_* names are a fallback)
+AWS_BUCKET_NAME_<ENV>             # S3 Dumps bucket per env (falls back to AWS_BUCKET_NAME)
+S3_DUMP_PREFIX_<ENV>              # optional key prefix to browse, e.g. dumps/ (falls back to S3_DUMP_PREFIX)
 SESSION_URL_BASE_<ENV>            # optional chat-log URL base for Tickets Automation links; defaults to https://platform-<env>.omapagents.ai/... (Prod: https://platform.omapagents.ai/...)
 ```
 

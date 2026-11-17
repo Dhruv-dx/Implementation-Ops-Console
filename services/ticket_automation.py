@@ -166,7 +166,7 @@ def _process_mongo(org_id: str, org_name: str, agent_name: str, date_from, date_
             rows.append({
                 "ticket_id": session_id if len(texts) == 1 else f"{session_id}#{i}",
                 "session_id": session_id,
-                "session_url": f"{base}/{session['_id']}",
+                "session_url": f"{base}?id={session['_id']}",
                 "agent_name": str(session.get("agent_id") or ""),
                 "organization": str(session.get("organization_id") or ""),
                 "note": text,
@@ -231,7 +231,7 @@ def process(org_id: str, agent_name: str = "", org_name: str = "", date_from=Non
         rows.append({
             "ticket_id": ticket.get("key", ""),
             "session_id": session_id,
-            "session_url": f"{_session_url_base(env)}/{document_id}" if document_id else "",
+            "session_url": f"{_session_url_base(env)}?id={document_id}" if document_id else "",
             "agent_name": parsed["agent_name"],
             "organization": parsed["org_name"] or org_name or org_id,
             "note": parsed["note"],

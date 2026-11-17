@@ -1,5 +1,5 @@
-"""OMAP(R) Admin Dashboard — unified entry point for the four internal tools:
-Chats Review, Tickets Automation, OSD -> IMAP, Close Tickets.
+"""OMAP(R) Admin Dashboard — unified entry point for the six internal tools:
+Chats Review, Tickets Automation, OSD -> IMAP, Close Tickets, Comment on Tix, S3 Dumps.
 
 Run:  python app.py   (serves http://127.0.0.1:8100)
 """
@@ -17,10 +17,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
-from services import chats, close_tickets, osd_imap, sharepoint, ticket_automation
+from services import chats, close_tickets, comment_tickets, osd_imap, s3_dumps, sharepoint, ticket_automation
 from services.jira_common import JiraError
 from services.mongo_common import MongoConfigError
+from services.s3_dumps import S3Error
 from services.sharepoint import SharePointError
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +40,7 @@ async def index():
 def _guard(fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
-    except (JiraError, MongoConfigError, SharePointError) as e:
+    except (JiraError, MongoConfigError, SharePointError, S3Error) as e:
         raise HTTPException(502, str(e))
     except HTTPException:
         raise
@@ -174,6 +176,49 @@ async def ct_close(req: CloseRequest):
     if not req.keys:
         raise HTTPException(400, "No ticket keys provided")
     return _guard(close_tickets.close_tickets, req.keys, req.workers)
+
+
+# ---------------------------------------------------------------- Comment on Tix
+
+class CommentRequest(BaseModel):
+    ticket_numbers: str
+    comment: str
+    mode: str  # "internal" (internal note) or "reply" (reply to customer)
+
+
+@app.post("/api/comment-tickets/comment")
+async def comment_tix(req: CommentRequest):
+    return _guard(comment_tickets.add_comments, req.ticket_numbers, req.comment, req.mode)
+
+
+# ------------------------------------------------------------------- S3 Dumps
+
+@app.get("/api/s3-dumps/list")
+async def s3_list(
+    env: str = Query("prod", description="dev / qa / uat / prod"),
+    agent_id: str = Query(..., description="Agent ID (required)"),
+    agent_version_id: str = Query(..., description="Agent version ID (required)"),
+):
+    return _guard(s3_dumps.list_dumps, env, agent_id, agent_version_id)
+
+
+@app.get("/api/s3-dumps/zip")
+async def s3_zip(
+    env: str = Query("prod", description="dev / qa / uat / prod"),
+    agent_id: str = Query(..., description="Agent ID (required)"),
+    agent_version_id: str = Query(..., description="Agent version ID (required)"),
+):
+    zip_path, filename = _guard(s3_dumps.zip_dumps, env, agent_id, agent_version_id)
+    return FileResponse(zip_path, media_type="application/zip", filename=filename,
+                        background=BackgroundTask(os.remove, zip_path))
+
+
+@app.get("/api/s3-dumps/link")
+async def s3_link(
+    key: str = Query(..., description="S3 object key"),
+    env: str = Query("prod", description="dev / qa / uat / prod"),
+):
+    return _guard(s3_dumps.presign_download, env, key)
 
 
 if __name__ == "__main__":

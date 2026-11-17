@@ -8,6 +8,8 @@ const ROUTES = {
   "tickets-automation": { view: "tickets-automation", title: "Tickets Automation" },
   "osd-imap": { view: "osd-imap", title: "OSD → IMAP" },
   "close-tickets": { view: "close-tickets", title: "Close Tickets" },
+  "comment-tix": { view: "comment-tix", title: "Comment on Tix" },
+  "s3-dumps": { view: "s3-dumps", title: "S3 Dumps" },
 };
 
 function route() {
@@ -760,5 +762,205 @@ $("ct-close-btn").addEventListener("click", async () => {
   } finally {
     setLoading(btn, false);
     ctUpdateToolbar();
+  }
+});
+
+
+/* ========================================================== Comment on Tix */
+let cmMode = "internal";
+
+const CM_MODE_META = {
+  internal: { label: "Add internal note", hint: "Internal notes are visible to agents only." },
+  reply: { label: "Reply to customer", hint: "Replies are public and visible to the customer." },
+};
+
+const CM_SEND_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`;
+
+const CM_STATUS_BADGE = {
+  commented: `<span class="badge badge-success">Commented</span>`,
+  not_found: `<span class="badge badge-warning">Not found</span>`,
+  invalid: `<span class="badge badge-warning">Invalid key</span>`,
+  permission_denied: `<span class="badge badge-danger">Permission denied</span>`,
+  error: `<span class="badge badge-danger">Error</span>`,
+};
+
+$("cm-mode").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-mode]");
+  if (!btn) return;
+  cmMode = btn.dataset.mode;
+  $("cm-mode").querySelectorAll("button").forEach(b => {
+    const on = b === btn;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-checked", on ? "true" : "false");
+  });
+  $("cm-submit-label").textContent = CM_MODE_META[cmMode].label;
+  $("cm-mode-hint").textContent = CM_MODE_META[cmMode].hint;
+});
+
+$("cm-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const tickets = $("cm-tickets").value.trim();
+  const comment = $("cm-comment").value.trim();
+  if (!tickets || !comment) return;
+  const count = new Set(tickets.split(/[,\s]+/).filter(Boolean).map(t => t.toUpperCase())).size;
+  const ok = await confirmDialog(
+    `You are about to post this comment as ${cmMode === "reply" ? "a PUBLIC reply to the customer" : "an internal note"} on ${count} ticket(s).`);
+  if (!ok) return;
+
+  const results = $("cm-results");
+  const stats = $("cm-stats");
+  setLoading($("cm-submit"), true);
+  stats.hidden = true;
+  results.innerHTML = skeleton(4);
+  try {
+    const data = await api("/api/comment-tickets/comment", {
+      method: "POST",
+      body: JSON.stringify({ ticket_numbers: tickets, comment, mode: cmMode }),
+    });
+    const c = data.counts;
+    const failed = data.total - (c.commented || 0);
+    stats.innerHTML =
+      statCard("Tickets", data.total) +
+      statCard("Commented", c.commented || 0, "stat-success") +
+      statCard("Failed", failed, failed ? "stat-danger" : "");
+    stats.hidden = false;
+    results.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Ticket</th><th>Result</th></tr></thead>
+      <tbody>${data.results.map(r => `<tr>
+        <td class="mono">${esc(r.key)}</td>
+        <td>${CM_STATUS_BADGE[r.status] || esc(r.status)}${r.detail ? ` <span class="mono" style="font-size:12px">${esc(r.detail)}</span>` : ""}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+    if (!failed) $("cm-comment").value = "";
+    toast(`${c.commented || 0} of ${data.total} commented`, failed ? "error" : "success");
+  } catch (err) {
+    stats.hidden = true;
+    results.innerHTML = stateBox("Comment failed", err.message, true);
+  } finally {
+    setLoading($("cm-submit"), false,
+      `${CM_SEND_ICON}<span id="cm-submit-label">${CM_MODE_META[cmMode].label}</span>`);
+  }
+});
+
+/* =============================================================== S3 Dumps */
+let s3Env = "prod";
+let s3Query = null; // env + IDs behind the results currently on screen (used by "Download all")
+
+const S3_DL_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`;
+
+function formatBytes(n) {
+  if (!n) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+  return `${(n / Math.pow(1024, i)).toFixed(i ? 1 : 0)} ${units[i]}`;
+}
+
+document.querySelectorAll("#s3-env button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    s3Env = btn.dataset.env;
+    document.querySelectorAll("#s3-env button").forEach(b => {
+      const on = b === btn;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-checked", on);
+    });
+    // results belong to the previous environment
+    $("s3-results").innerHTML = "";
+    $("s3-stats").hidden = true;
+  });
+});
+
+$("s3-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const results = $("s3-results");
+  const stats = $("s3-stats");
+  const env = s3Env;
+  setLoading($("s3-submit"), true);
+  stats.hidden = true;
+  results.innerHTML = skeleton(6);
+  try {
+    const agentId = $("s3-agent-id").value.trim();
+    const versionId = $("s3-agent-version-id").value.trim();
+    if (!agentId || !versionId) {
+      results.innerHTML = stateBox("Agent ID and version ID required", "Enter both the agent ID and the agent version ID.", true);
+      return;
+    }
+    const data = await api(
+      `/api/s3-dumps/list?env=${env}&agent_id=${encodeURIComponent(agentId)}&agent_version_id=${encodeURIComponent(versionId)}`);
+    if (env !== s3Env) return; // user switched environment while loading
+    stats.innerHTML =
+      statCard("Environment", env.toUpperCase()) +
+      statCard("Files", data.total) +
+      statCard("Bucket", data.bucket, "stat-text") +
+      statCard("Prefix", data.prefix || "(root)", "stat-text");
+    stats.hidden = false;
+    if (!data.files.length) {
+      results.innerHTML = stateBox("No files found", "No dump matches this agent ID and agent version ID in this environment.");
+      return;
+    }
+    s3Query = { env, agentId, versionId };
+    results.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-primary" type="button" id="s3-dl-all">${S3_DL_ICON} Download all (${data.total} files, ${formatBytes(data.total_size)})</button>
+      </div>
+      <div class="table-wrap"><table>
+      <thead><tr><th>File</th><th>Size</th><th>Last modified</th><th></th></tr></thead>
+      <tbody>${data.files.map(f => `<tr>
+        <td class="mono">${esc(f.name)}</td>
+        <td>${formatBytes(f.size)}</td>
+        <td>${esc(new Date(f.last_modified).toLocaleString())}</td>
+        <td><button class="btn btn-secondary s3-dl" type="button" data-key="${esc(f.key)}">${S3_DL_ICON} Download</button></td>
+      </tr>`).join("")}</tbody></table></div>`;
+  } catch (err) {
+    stats.hidden = true;
+    results.innerHTML = stateBox("Could not list dumps", err.message, true);
+  } finally {
+    setLoading($("s3-submit"), false);
+  }
+});
+
+$("s3-results").addEventListener("click", async (e) => {
+  const allBtn = e.target.closest("#s3-dl-all");
+  if (allBtn && s3Query) {
+    setLoading(allBtn, true);
+    toast("Preparing zip, this can take a moment...", "info");
+    try {
+      const { env, agentId, versionId } = s3Query;
+      const res = await fetch(
+        `/api/s3-dumps/zip?env=${env}&agent_id=${encodeURIComponent(agentId)}&agent_version_id=${encodeURIComponent(versionId)}`);
+      if (!res.ok) {
+        let msg = `Request failed (${res.status})`;
+        try { msg = (await res.json()).detail || msg; } catch (_) { /* non-JSON error body */ }
+        throw new Error(msg);
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${agentId}_${versionId}_clean_files.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast("Download started: all files (zip)", "success");
+    } catch (err) {
+      toast(`Download all failed: ${err.message}`, "error");
+    } finally {
+      setLoading(allBtn, false);
+    }
+    return;
+  }
+  const btn = e.target.closest("button.s3-dl");
+  if (!btn) return;
+  setLoading(btn, true);
+  try {
+    const data = await api(`/api/s3-dumps/link?env=${s3Env}&key=${encodeURIComponent(btn.dataset.key)}`);
+    const a = document.createElement("a");
+    a.href = data.url;
+    a.download = data.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast(`Download started: ${data.filename}`, "success");
+  } catch (err) {
+    toast(`Download failed: ${err.message}`, "error");
+  } finally {
+    setLoading(btn, false);
   }
 });

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=11">
+<link rel="stylesheet" href="/static/style.css?v=13">
 <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js" defer></script>
 </head>
 <body data-view="home">
@@ -83,6 +83,28 @@
       </span>
       <h2>Close Tickets</h2>
       <p>Find open Jira tickets by summary pattern, review the matches, and bulk-close the ones you select.</p>
+      <span class="card-go">Open module
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
+
+    <a class="feature-card card-comment" href="#/comment-tix">
+      <span class="card-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+      </span>
+      <h2>Comment on Tix</h2>
+      <p>Post one comment to many tickets at once, as an internal note or a reply to the customer.</p>
+      <span class="card-go">Open module
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </a>
+
+    <a class="feature-card card-s3" href="#/s3-dumps">
+      <span class="card-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+      </span>
+      <h2>S3 Dumps</h2>
+      <p>Browse the dump files stored in S3 for each environment and download the one you need.</p>
       <span class="card-go">Open module
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       </span>
@@ -285,6 +307,80 @@
   <div id="ct-results"></div>
 </section>
 
+<!-- ==================== COMMENT ON TIX ==================== -->
+<section id="view-comment-tix" class="view">
+  <div class="page-head">
+    <h1>Comment on Tix</h1>
+    <p>Enter one or more ticket numbers and a comment, then choose whether to post it as an internal note or as a reply to the customer.</p>
+  </div>
+
+  <form class="panel" id="cm-form">
+    <div class="field">
+      <label for="cm-tickets">Ticket number(s) <span class="req" aria-hidden="true">*</span></label>
+      <input id="cm-tickets" type="text" required placeholder="e.g. OSD-6873, OSD-6890" autocomplete="off">
+      <span class="hint">Separate multiple tickets with commas or spaces.</span>
+    </div>
+    <div class="field" style="margin-top:16px">
+      <label for="cm-comment">Comment <span class="req" aria-hidden="true">*</span></label>
+      <textarea id="cm-comment" required placeholder="Write your comment..."></textarea>
+    </div>
+    <div class="field" style="margin-top:16px">
+      <label id="cm-mode-label">Post as</label>
+      <div class="mode-toggle" id="cm-mode" role="radiogroup" aria-labelledby="cm-mode-label">
+        <button type="button" role="radio" aria-checked="true" data-mode="internal" class="active">Add internal note</button>
+        <button type="button" role="radio" aria-checked="false" data-mode="reply">Reply to customer</button>
+      </div>
+      <span class="hint" id="cm-mode-hint">Internal notes are visible to agents only.</span>
+    </div>
+    <div style="margin-top:20px">
+      <button class="btn btn-primary" type="submit" id="cm-submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+        <span id="cm-submit-label">Add internal note</span>
+      </button>
+    </div>
+  </form>
+
+  <div id="cm-stats" class="stats-row" hidden></div>
+  <div id="cm-results"></div>
+</section>
+
+<!-- ==================== S3 DUMPS ==================== -->
+<section id="view-s3-dumps" class="view">
+  <div class="page-head">
+    <h1>S3 Dumps</h1>
+    <p>Pick an environment, enter the agent ID and agent version ID, and all of that version's dump files are listed below, newest first. Download them one by one (short-lived link straight from S3) or all at once as a zip.</p>
+  </div>
+
+  <form class="panel" id="s3-form">
+    <div class="field env-field">
+      <label id="s3-env-label">Environment</label>
+      <div class="env-toggle" id="s3-env" role="radiogroup" aria-labelledby="s3-env-label">
+        <button type="button" role="radio" aria-checked="false" data-env="dev">Dev</button>
+        <button type="button" role="radio" aria-checked="false" data-env="qa">QA</button>
+        <button type="button" role="radio" aria-checked="false" data-env="uat">UAT</button>
+        <button type="button" role="radio" aria-checked="true" data-env="prod" class="active">Prod</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field grow-2">
+        <label for="s3-agent-id">Agent ID</label>
+        <input id="s3-agent-id" type="text" required placeholder="agent_id" autocomplete="off">
+      </div>
+      <div class="field grow-2">
+        <label for="s3-agent-version-id">Agent version ID</label>
+        <input id="s3-agent-version-id" type="text" required placeholder="agent_version_id" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" type="submit" id="s3-submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        List files
+      </button>
+    </div>
+  </form>
+
+  <div id="s3-stats" class="stats-row" hidden></div>
+  <div id="s3-results"></div>
+</section>
+
 </main>
 
 <footer>The AltaDX OMAP&reg; Team &middot; internal operations console</footer>
@@ -306,6 +402,6 @@
 
 <div id="toasts" aria-live="polite"></div>
 
-<script src="/static/app.js?v=10"></script>
+<script src="/static/app.js?v=12"></script>
 </body>
 </html>

@@ -21,6 +21,8 @@
   --accent-tickets: #a78bfa;
   --accent-osd: #34d399;
   --accent-close: #f87171;
+  --accent-comment: #fbbf24;
+  --accent-s3: #a78bfa;
 
   --radius: 12px;
   --radius-sm: 8px;
@@ -134,7 +136,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 32px 28px 80px; }
 .page-head-accent {
   width: 5px; flex-shrink: 0; border-radius: 999px;
   background: linear-gradient(180deg,
-    var(--accent-chats), var(--accent-tickets), var(--accent-osd), var(--accent-close));
+    var(--accent-chats), var(--accent-tickets), var(--accent-osd), var(--accent-close), var(--accent-comment));
 }
 .page-head-home h1 {
   background: linear-gradient(90deg, var(--text) 45%, var(--accent-tickets));
@@ -203,6 +205,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 32px 28px 80px; }
 .card-tickets{ --card-accent: var(--accent-tickets); }
 .card-osd    { --card-accent: var(--accent-osd); }
 .card-close  { --card-accent: var(--accent-close); }
+.card-comment{ --card-accent: var(--accent-comment); }
+.card-s3     { --card-accent: var(--accent-s3); }
 
 @media (max-width: 640px) {
   .page-head-home { padding-left: 0; }
@@ -226,7 +230,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 32px 28px 80px; }
 /* Bare buttons/checkboxes dropped directly into a form-row (no label above them)
    need to be pushed down by one label-row's height so they align with sibling inputs. */
 .form-row > .btn, .form-row > .checkbox-field { margin-top: 25px; flex-shrink: 0; }
-.field input, .field select {
+.field input, .field select, .field textarea {
   min-height: 44px; padding: 0 14px;
   background: var(--bg-raised);
   border: 1px solid var(--border-strong);
@@ -236,7 +240,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 32px 28px 80px; }
   transition: border-color .15s ease;
   color-scheme: dark;
 }
-.field input:focus { border-color: var(--primary); outline: none; }
+.field textarea { padding: 12px 14px; min-height: 140px; resize: vertical; line-height: 1.5; }
+.field input:focus, .field textarea:focus { border-color: var(--primary); outline: none; }
 .field input:disabled {
   opacity: .45; cursor: not-allowed;
   background: repeating-linear-gradient(135deg, var(--bg-raised) 0 8px, var(--bg) 8px 16px);
@@ -323,6 +328,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 32px 28px 80px; }
 @keyframes stat-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .stat .stat-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
 .stat .stat-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+/* long text values (bucket, prefix): smaller, wrap anywhere, and get more room than numeric cards */
+.stat.stat-text { flex: 2 1 220px; min-width: 0; }
+.stat.stat-text .stat-value { font-size: 16px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; word-break: break-word; }
 .stat.stat-success .stat-value { color: var(--success); }
 .stat.stat-warning .stat-value { color: var(--warning); }
 .stat.stat-danger  .stat-value { color: var(--danger); }
@@ -601,3 +609,19 @@ pre.json { margin: 6px 0 0; padding: 10px 12px; max-height: 320px; overflow: aut
 .chat-pill.ok { background: #e4f9ee; color: #1c8a52; }
 .chat-pill.bad { background: #fdecec; color: #c23a3a; }
 .chat-pill.sandbox { background: #fff4d6; color: #9a6a00; }
+
+/* Comment on Tix: mode toggle */
+.mode-toggle { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.mode-toggle button {
+  min-height: 44px; padding: 0 16px;
+  background: var(--bg-raised); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); color: var(--text-muted);
+  font: 600 14px var(--font); cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.mode-toggle button:hover { border-color: var(--accent-comment); color: var(--text); background: var(--surface-hover); }
+.mode-toggle button.active {
+  border-color: var(--accent-comment); color: var(--text);
+  background: color-mix(in srgb, var(--accent-comment) 14%, transparent);
+}
+.mode-toggle button:focus-visible { outline: 2px solid var(--primary-hover); outline-offset: 2px; }
